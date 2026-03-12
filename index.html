@@ -188,7 +188,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
         <div class="macts" style="margin-top:14px;flex-wrap:wrap;gap:8px">
             <button class="btn" style="background:#9ca3af" id="eclose">Close</button>
             <button class="btn btn-p" id="ecopy">Copy Text</button>
-            <button class="btn btn-g" id="edl">Download HTML</button>
+            <button class="btn btn-g" id="edl-html">⬇ HTML</button>
+            <button class="btn" style="background:#8b5cf6" id="edl-jpg">⬇ JPG</button>
         </div>
     </div>
 </div>
@@ -306,18 +307,6 @@ function calcCols(n,w,h){
     return best;
 }
 
-function positions(){
-    var list=runners.slice();
-    list.sort(function(a,b){
-        if(a.ft&&b.ft)return(a.ft-a.st)-(b.ft-b.st);
-        if(a.ft&&!b.ft)return-1;if(!a.ft&&b.ft)return 1;
-        if(a.laps!==b.laps)return b.laps-a.laps;
-        var oa=arrival[a.laps]||[],ob=arrival[b.laps]||[];
-        return oa.indexOf(a.id)-ob.indexOf(b.id);
-    });
-    var m={};for(var i=0;i<list.length;i++)m[list[i].id]=i+1;return m;
-}
-
 function renderGrid(){
     var n=runners.length;
     if(!n){gridEl.innerHTML='<div style="color:#666;text-align:center;padding:40px">No runners. Go back to add some.</div>';return;}
@@ -368,8 +357,6 @@ function renderGrid(){
         } else if(racing){
             if(isLastLap){
                 info.textContent='🏁 LAST!';info.style.fontWeight='800';
-            } else if(isBell){
-                info.textContent=r.laps+'/'+totalLaps;
             } else {
                 info.textContent=r.laps+'/'+totalLaps;
             }
@@ -502,33 +489,32 @@ function startTimer(){function t(){updateTimer();timerRAF=requestAnimationFrame(
 function stopTimer(){if(timerRAF){cancelAnimationFrame(timerRAF);timerRAF=null;}updateTimer();}
 
 /* EXPORT */
+function runnerLabel(r){return cName(r.color)+' '+r.num;}
+
 function genHTML(){
     var rd=parseInt($('inp-dist').value),dur=((raceEnd||Date.now())-raceStart)/1000,d=new Date();
     var h='<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px;font-size:13px;color:#666"><div>Event: '+rd+'m</div><div>Date: '+d.toLocaleDateString()+'</div><div>Duration: '+fmt(dur)+'</div><div>Runners: '+runners.length+'</div></div>';
     var fin=runners.filter(function(r){return!!r.ft;}).sort(function(a,b){return(a.ft-a.st)-(b.ft-b.st);});
     if(fin.length){
         var ml=0;for(var i=0;i<fin.length;i++)if(fin[i].lapTimes.length>ml)ml=fin[i].lapTimes.length;
-        h+='<h3>Finishers ('+fin.length+')</h3><div class="rscroll"><table class="rtbl"><thead><tr><th>Pos</th><th>Color</th><th>#</th>';
+        h+='<h3>Finishers ('+fin.length+')</h3><div class="rscroll"><table class="rtbl"><thead><tr><th>Rank</th><th>Runner</th><th>Total</th>';
         for(var lp=1;lp<=ml;lp++){var dm=lp<=distMarkers.length?distMarkers[lp-1]:'';h+='<th>L'+lp+(dm?' ('+dm+'m)':'')+'</th>';}
-        h+='<th>Total</th><th>Pace/km</th></tr></thead><tbody>';
+        h+='</tr></thead><tbody>';
         for(i=0;i<fin.length;i++){
-            var r=fin[i],t=(r.ft-r.st)/1000,pace=t/(rd/1000);
-            h+='<tr><td>'+(i+1)+'</td><td><span class="cdot" style="background:'+r.color+'"></span>'+cName(r.color)+'</td><td>'+r.num+'</td>';
+            var r=fin[i],t=(r.ft-r.st)/1000;
+            h+='<tr><td>'+(i+1)+'</td><td><span class="cdot" style="background:'+r.color+'"></span>'+runnerLabel(r)+'</td><td><strong>'+fmt(t)+'</strong></td>';
             var cum=0;for(lp=0;lp<ml;lp++){if(lp<r.lapTimes.length){var ls=r.lapTimes[lp]/1000;cum+=ls;h+='<td>'+fmt(ls)+'<br><small style="color:#999">'+fmt(cum)+'</small></td>';}else h+='<td>--</td>';}
-            h+='<td><strong>'+fmt(t)+'</strong></td><td>'+fmt(pace)+'</td></tr>';
+            h+='</tr>';
         }
         h+='</tbody></table></div>';
-        var tm={};for(i=0;i<fin.length;i++){r=fin[i];if(!tm[r.color])tm[r.color]={n:cName(r.color),c:r.color,cnt:0,t:0};tm[r.color].cnt++;tm[r.color].t+=(r.ft-r.st)/1000;}
-        var ta=Object.values(tm).sort(function(a,b){return a.t/a.cnt-b.t/b.cnt;});
-        if(ta.length>1){h+='<h3>Teams</h3><table class="rtbl"><thead><tr><th>Pos</th><th>Team</th><th>#</th><th>Avg</th></tr></thead><tbody>';for(i=0;i<ta.length;i++)h+='<tr><td>'+(i+1)+'</td><td><span class="cdot" style="background:'+ta[i].c+'"></span>'+ta[i].n+'</td><td>'+ta[i].cnt+'</td><td>'+fmt(ta[i].t/ta[i].cnt)+'</td></tr>';h+='</tbody></table>';}
     }
     var dnf=runners.filter(function(r){return!r.ft;}).sort(function(a,b){return b.laps-a.laps||a.num-b.num;});
     if(dnf.length){
         var ml2=0;for(i=0;i<dnf.length;i++)if(dnf[i].lapTimes.length>ml2)ml2=dnf[i].lapTimes.length;
-        h+='<h3>DNF ('+dnf.length+')</h3><div class="rscroll"><table class="rtbl"><thead><tr><th>Color</th><th>#</th><th>Laps</th>';
+        h+='<h3>DNF ('+dnf.length+')</h3><div class="rscroll"><table class="rtbl"><thead><tr><th>Runner</th><th>Laps</th>';
         for(lp=1;lp<=ml2;lp++)h+='<th>L'+lp+'</th>';
         h+='</tr></thead><tbody>';
-        for(i=0;i<dnf.length;i++){r=dnf[i];h+='<tr><td><span class="cdot" style="background:'+r.color+'"></span>'+cName(r.color)+'</td><td>'+r.num+'</td><td>'+r.laps+'</td>';
+        for(i=0;i<dnf.length;i++){r=dnf[i];h+='<tr><td><span class="cdot" style="background:'+r.color+'"></span>'+runnerLabel(r)+'</td><td>'+r.laps+'</td>';
         var cm2=0;for(lp=0;lp<ml2;lp++){if(lp<r.lapTimes.length){var s2=r.lapTimes[lp]/1000;cm2+=s2;h+='<td>'+fmt(s2)+'<br><small style="color:#999">'+fmt(cm2)+'</small></td>';}else h+='<td>--</td>';}h+='</tr>';}
         h+='</tbody></table></div>';
     }
@@ -538,9 +524,9 @@ function showExport(){if(!raceStart){toast('No race data','warn');return;}$('eco
 function copyText(){
     var rd=$('inp-dist').value,txt=rd+'m Race Results\n'+new Date().toLocaleDateString()+'\n\n';
     var fin=runners.filter(function(r){return!!r.ft;}).sort(function(a,b){return(a.ft-a.st)-(b.ft-b.st);});
-    if(fin.length){txt+='FINISHERS:\n';for(var i=0;i<fin.length;i++){var r=fin[i];txt+=(i+1)+'. '+cName(r.color)+' #'+r.num+' - '+fmt((r.ft-r.st)/1000);if(r.lapTimes.length){txt+=' | Laps: ';var p=[];for(var j=0;j<r.lapTimes.length;j++)p.push(fmt(r.lapTimes[j]/1000));txt+=p.join(', ');}txt+='\n';}}
+    if(fin.length){txt+='FINISHERS:\n';for(var i=0;i<fin.length;i++){var r=fin[i];txt+=(i+1)+'. '+runnerLabel(r)+' - '+fmt((r.ft-r.st)/1000);if(r.lapTimes.length){txt+=' | Laps: ';var p=[];for(var j=0;j<r.lapTimes.length;j++)p.push(fmt(r.lapTimes[j]/1000));txt+=p.join(', ');}txt+='\n';}}
     var dnf=runners.filter(function(r){return!r.ft;});
-    if(dnf.length){txt+='\nDNF:\n';for(i=0;i<dnf.length;i++){r=dnf[i];txt+=cName(r.color)+' #'+r.num+' - Lap '+r.laps+'\n';}}
+    if(dnf.length){txt+='\nDNF:\n';for(i=0;i<dnf.length;i++){r=dnf[i];txt+=runnerLabel(r)+' - Lap '+r.laps+'\n';}}
     navigator.clipboard.writeText(txt).then(function(){toast('Copied!','ok');}).catch(function(){toast('Copy failed','err');});
 }
 function dlHTML(){
@@ -549,6 +535,118 @@ function dlHTML(){
     var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+rd+'m Results</title><style>'+css+'</style></head><body><h2>'+rd+'m Race Results</h2>'+genHTML()+'</body></html>';
     var b=new Blob([html],{type:'text/html'}),u=URL.createObjectURL(b),a=document.createElement('a');
     a.href=u;a.download=rd+'m_results.html';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);
+}
+
+/* JPG DOWNLOAD via canvas rendering */
+function dlJPG(){
+    toast('Generating image...','info');
+    var rd=$('inp-dist').value;
+    var content=$('econtent');
+
+    // Create offscreen container for clean rendering
+    var wrap=document.createElement('div');
+    wrap.style.cssText='position:fixed;left:-9999px;top:0;background:#fff;padding:24px;font-family:Arial,sans-serif;width:900px;color:#333';
+    wrap.innerHTML='<h2 style="color:#2c3e50;margin-bottom:12px">📊 '+rd+'m Race Results</h2>'+genHTML();
+    document.body.appendChild(wrap);
+
+    // Style tables inside
+    var tables=wrap.querySelectorAll('table');
+    tables.forEach(function(t){t.style.borderCollapse='collapse';t.style.width='100%';t.style.margin='8px 0';});
+    var cells=wrap.querySelectorAll('th,td');
+    cells.forEach(function(c){c.style.border='1px solid #ddd';c.style.padding='5px 7px';c.style.fontSize='12px';c.style.textAlign='left';});
+    var ths=wrap.querySelectorAll('th');
+    ths.forEach(function(c){c.style.background='#f2f2f2';});
+    var dots=wrap.querySelectorAll('.cdot');
+    dots.forEach(function(d){d.style.width='13px';d.style.height='13px';d.style.borderRadius='50%';d.style.display='inline-block';d.style.marginRight='4px';d.style.verticalAlign='middle';});
+
+    // Use canvas
+    setTimeout(function(){
+        try{
+            var w=wrap.scrollWidth,h=wrap.scrollHeight;
+            var scale=2;
+            var canvas=document.createElement('canvas');
+            canvas.width=w*scale;canvas.height=h*scale;
+            var ctx=canvas.getContext('2d');
+            ctx.scale(scale,scale);
+            ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
+
+            var svgData='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">'+new XMLSerializer().serializeToString(wrap)+'</div></foreignObject></svg>';
+            var img=new Image();
+            var svgBlob=new Blob([svgData],{type:'image/svg+xml;charset=utf-8'});
+            var url=URL.createObjectURL(svgBlob);
+            img.onload=function(){
+                ctx.drawImage(img,0,0);
+                URL.revokeObjectURL(url);
+                document.body.removeChild(wrap);
+                canvas.toBlob(function(blob){
+                    if(!blob){toast('JPG failed - try HTML','err');return;}
+                    var a=document.createElement('a');
+                    a.href=URL.createObjectURL(blob);
+                    a.download=rd+'m_results.jpg';
+                    document.body.appendChild(a);a.click();
+                    document.body.removeChild(a);
+                    toast('JPG downloaded!','ok');
+                },'image/jpeg',0.95);
+            };
+            img.onerror=function(){
+                document.body.removeChild(wrap);
+                URL.revokeObjectURL(url);
+                // Fallback: plain canvas text rendering
+                dlJPGFallback(rd);
+            };
+            img.src=url;
+        }catch(e){
+            document.body.removeChild(wrap);
+            dlJPGFallback(rd);
+        }
+    },100);
+}
+
+function dlJPGFallback(rd){
+    toast('Using simple layout...','info');
+    var fin=runners.filter(function(r){return!!r.ft;}).sort(function(a,b){return(a.ft-a.st)-(b.ft-b.st);});
+    var dnf=runners.filter(function(r){return!r.ft;});
+    var lines=[];
+    lines.push({text:rd+'m Race Results — '+new Date().toLocaleDateString(),bold:true,size:18});
+    lines.push({text:'',size:10});
+    if(fin.length){
+        lines.push({text:'Finishers ('+fin.length+')',bold:true,size:15});
+        for(var i=0;i<fin.length;i++){
+            var r=fin[i],t=(r.ft-r.st)/1000;
+            var lapStr='';if(r.lapTimes.length){var p=[];for(var j=0;j<r.lapTimes.length;j++)p.push(fmt(r.lapTimes[j]/1000));lapStr=' | '+p.join(', ');}
+            lines.push({text:(i+1)+'. '+runnerLabel(r)+'  '+fmt(t)+lapStr,size:13,color:r.color});
+        }
+    }
+    if(dnf.length){
+        lines.push({text:'',size:10});
+        lines.push({text:'DNF ('+dnf.length+')',bold:true,size:15});
+        for(i=0;i<dnf.length;i++){r=dnf[i];lines.push({text:runnerLabel(r)+' — Lap '+r.laps,size:13,color:r.color});}
+    }
+    var pad=24,lineH=1.6,canW=800;
+    var canvas=document.createElement('canvas');
+    var ctx=canvas.getContext('2d');
+    var totalH=pad*2;
+    for(i=0;i<lines.length;i++)totalH+=(lines[i].size||13)*lineH;
+    canvas.width=canW*2;canvas.height=totalH*2;
+    ctx.scale(2,2);
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,canW,totalH);
+    var y=pad;
+    for(i=0;i<lines.length;i++){
+        var l=lines[i],fs=l.size||13;
+        ctx.font=(l.bold?'bold ':'')+fs+'px Arial';
+        if(l.color){
+            ctx.fillStyle=l.color;ctx.beginPath();ctx.arc(pad+6,y+fs/2,5,0,Math.PI*2);ctx.fill();
+            ctx.fillStyle='#333';ctx.fillText(l.text,pad+18,y+fs-2);
+        } else {
+            ctx.fillStyle='#333';ctx.fillText(l.text,pad,y+fs-2);
+        }
+        y+=fs*lineH;
+    }
+    canvas.toBlob(function(blob){
+        var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+        a.download=rd+'m_results.jpg';document.body.appendChild(a);a.click();document.body.removeChild(a);
+        toast('JPG downloaded!','ok');
+    },'image/jpeg',0.95);
 }
 
 /* EVENTS */
@@ -588,7 +686,8 @@ $('edit-num').addEventListener('keydown',function(e){if(e.key==='Enter')saveEdit
 
 $('eclose').addEventListener('click',function(){$('emod').style.display='none';});
 $('ecopy').addEventListener('click',copyText);
-$('edl').addEventListener('click',dlHTML);
+$('edl-html').addEventListener('click',dlHTML);
+$('edl-jpg').addEventListener('click',dlJPG);
 
 $('audio-init-btn').addEventListener('click',function(){initAudio();fb('start');$('audio-init').style.display='none';});
 document.addEventListener('click',function f(){if(!audioOK)initAudio();document.removeEventListener('click',f);});
