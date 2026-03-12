@@ -189,7 +189,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,Blink
             <button class="btn" style="background:#9ca3af" id="eclose">Close</button>
             <button class="btn btn-p" id="ecopy">Copy Text</button>
             <button class="btn btn-g" id="edl-html">⬇ HTML</button>
-            <button class="btn" style="background:#8b5cf6" id="edl-jpg">⬇ JPG</button>
+
         </div>
     </div>
 </div>
@@ -537,118 +537,6 @@ function dlHTML(){
     a.href=u;a.download=rd+'m_results.html';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);
 }
 
-/* JPG DOWNLOAD via canvas rendering */
-function dlJPG(){
-    toast('Generating image...','info');
-    var rd=$('inp-dist').value;
-    var content=$('econtent');
-
-    // Create offscreen container for clean rendering
-    var wrap=document.createElement('div');
-    wrap.style.cssText='position:fixed;left:-9999px;top:0;background:#fff;padding:24px;font-family:Arial,sans-serif;width:900px;color:#333';
-    wrap.innerHTML='<h2 style="color:#2c3e50;margin-bottom:12px">📊 '+rd+'m Race Results</h2>'+genHTML();
-    document.body.appendChild(wrap);
-
-    // Style tables inside
-    var tables=wrap.querySelectorAll('table');
-    tables.forEach(function(t){t.style.borderCollapse='collapse';t.style.width='100%';t.style.margin='8px 0';});
-    var cells=wrap.querySelectorAll('th,td');
-    cells.forEach(function(c){c.style.border='1px solid #ddd';c.style.padding='5px 7px';c.style.fontSize='12px';c.style.textAlign='left';});
-    var ths=wrap.querySelectorAll('th');
-    ths.forEach(function(c){c.style.background='#f2f2f2';});
-    var dots=wrap.querySelectorAll('.cdot');
-    dots.forEach(function(d){d.style.width='13px';d.style.height='13px';d.style.borderRadius='50%';d.style.display='inline-block';d.style.marginRight='4px';d.style.verticalAlign='middle';});
-
-    // Use canvas
-    setTimeout(function(){
-        try{
-            var w=wrap.scrollWidth,h=wrap.scrollHeight;
-            var scale=2;
-            var canvas=document.createElement('canvas');
-            canvas.width=w*scale;canvas.height=h*scale;
-            var ctx=canvas.getContext('2d');
-            ctx.scale(scale,scale);
-            ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
-
-            var svgData='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml">'+new XMLSerializer().serializeToString(wrap)+'</div></foreignObject></svg>';
-            var img=new Image();
-            var svgBlob=new Blob([svgData],{type:'image/svg+xml;charset=utf-8'});
-            var url=URL.createObjectURL(svgBlob);
-            img.onload=function(){
-                ctx.drawImage(img,0,0);
-                URL.revokeObjectURL(url);
-                document.body.removeChild(wrap);
-                canvas.toBlob(function(blob){
-                    if(!blob){toast('JPG failed - try HTML','err');return;}
-                    var a=document.createElement('a');
-                    a.href=URL.createObjectURL(blob);
-                    a.download=rd+'m_results.jpg';
-                    document.body.appendChild(a);a.click();
-                    document.body.removeChild(a);
-                    toast('JPG downloaded!','ok');
-                },'image/jpeg',0.95);
-            };
-            img.onerror=function(){
-                document.body.removeChild(wrap);
-                URL.revokeObjectURL(url);
-                // Fallback: plain canvas text rendering
-                dlJPGFallback(rd);
-            };
-            img.src=url;
-        }catch(e){
-            document.body.removeChild(wrap);
-            dlJPGFallback(rd);
-        }
-    },100);
-}
-
-function dlJPGFallback(rd){
-    toast('Using simple layout...','info');
-    var fin=runners.filter(function(r){return!!r.ft;}).sort(function(a,b){return(a.ft-a.st)-(b.ft-b.st);});
-    var dnf=runners.filter(function(r){return!r.ft;});
-    var lines=[];
-    lines.push({text:rd+'m Race Results — '+new Date().toLocaleDateString(),bold:true,size:18});
-    lines.push({text:'',size:10});
-    if(fin.length){
-        lines.push({text:'Finishers ('+fin.length+')',bold:true,size:15});
-        for(var i=0;i<fin.length;i++){
-            var r=fin[i],t=(r.ft-r.st)/1000;
-            var lapStr='';if(r.lapTimes.length){var p=[];for(var j=0;j<r.lapTimes.length;j++)p.push(fmt(r.lapTimes[j]/1000));lapStr=' | '+p.join(', ');}
-            lines.push({text:(i+1)+'. '+runnerLabel(r)+'  '+fmt(t)+lapStr,size:13,color:r.color});
-        }
-    }
-    if(dnf.length){
-        lines.push({text:'',size:10});
-        lines.push({text:'DNF ('+dnf.length+')',bold:true,size:15});
-        for(i=0;i<dnf.length;i++){r=dnf[i];lines.push({text:runnerLabel(r)+' — Lap '+r.laps,size:13,color:r.color});}
-    }
-    var pad=24,lineH=1.6,canW=800;
-    var canvas=document.createElement('canvas');
-    var ctx=canvas.getContext('2d');
-    var totalH=pad*2;
-    for(i=0;i<lines.length;i++)totalH+=(lines[i].size||13)*lineH;
-    canvas.width=canW*2;canvas.height=totalH*2;
-    ctx.scale(2,2);
-    ctx.fillStyle='#fff';ctx.fillRect(0,0,canW,totalH);
-    var y=pad;
-    for(i=0;i<lines.length;i++){
-        var l=lines[i],fs=l.size||13;
-        ctx.font=(l.bold?'bold ':'')+fs+'px Arial';
-        if(l.color){
-            ctx.fillStyle=l.color;ctx.beginPath();ctx.arc(pad+6,y+fs/2,5,0,Math.PI*2);ctx.fill();
-            ctx.fillStyle='#333';ctx.fillText(l.text,pad+18,y+fs-2);
-        } else {
-            ctx.fillStyle='#333';ctx.fillText(l.text,pad,y+fs-2);
-        }
-        y+=fs*lineH;
-    }
-    canvas.toBlob(function(blob){
-        var a=document.createElement('a');a.href=URL.createObjectURL(blob);
-        a.download=rd+'m_results.jpg';document.body.appendChild(a);a.click();document.body.removeChild(a);
-        toast('JPG downloaded!','ok');
-    },'image/jpeg',0.95);
-}
-
 /* EVENTS */
 document.querySelectorAll('.pre-btn').forEach(function(b){
     b.addEventListener('click',function(){
@@ -687,7 +575,6 @@ $('edit-num').addEventListener('keydown',function(e){if(e.key==='Enter')saveEdit
 $('eclose').addEventListener('click',function(){$('emod').style.display='none';});
 $('ecopy').addEventListener('click',copyText);
 $('edl-html').addEventListener('click',dlHTML);
-$('edl-jpg').addEventListener('click',dlJPG);
 
 $('audio-init-btn').addEventListener('click',function(){initAudio();fb('start');$('audio-init').style.display='none';});
 document.addEventListener('click',function f(){if(!audioOK)initAudio();document.removeEventListener('click',f);});
@@ -701,3 +588,4 @@ else initAudio();
 </script>
 </body>
 </html>
+
