@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <title>Track Race Lap Counter</title>
-    <!-- Add these for link preview -->
 <meta property="og:title" content="🏃 Track Race Lap Counter">
 <meta property="og:description" content="Tap-based lap counter for track races. Supports multiple color teams, real-time timing, and race results export.">
 <meta property="og:type" content="website">
@@ -352,7 +351,6 @@ function renderGrid(){
         if(isBell)tile.classList.add('bell');
         if(isLastLap)tile.classList.add('lastlap');
 
-        // Bell icon top-right for penultimate lap only
         if(isBell){
             var bellIcon=document.createElement('div');
             bellIcon.className='r-bell';
@@ -361,15 +359,13 @@ function renderGrid(){
             tile.appendChild(bellIcon);
         }
 
-        // Runner number
         var nm=document.createElement('div');nm.className='r-num';nm.style.fontSize=numFS+'px';
         nm.textContent=r.num;tile.appendChild(nm);
 
-        // Info line
         var info=document.createElement('div');info.className='r-info';info.style.fontSize=infoFS+'px';
         if(r.ft){
             info.textContent=fmt((r.ft-r.st)/1000);info.style.fontWeight='800';
-        } else if(racing&&r.laps>0){
+        } else if(racing){
             if(isLastLap){
                 info.textContent='🏁 LAST!';info.style.fontWeight='800';
             } else if(isBell){
@@ -382,7 +378,6 @@ function renderGrid(){
         }
         tile.appendChild(info);
 
-        // Flash overlay for tap feedback
         var fl=document.createElement('div');fl.className='flash';tile.appendChild(fl);
         frag.appendChild(tile);
     }
@@ -439,8 +434,8 @@ function startRace(){
     arrival={};for(var l=0;l<=totalLaps;l++)arrival[l]=[];
     history=[];
     for(var i=0;i<runners.length;i++){
-        var r=runners[i];r.st=raceStart;r.laps=1;r.lapTimes=[];r.ft=null;
-        if(!arrival[1])arrival[1]=[];arrival[1].push(r.id);
+        var r=runners[i];r.st=raceStart;r.laps=0;r.lapTimes=[];r.ft=null;
+        if(!arrival[0])arrival[0]=[];arrival[0].push(r.id);
     }
     fb('start');
     btnStart.textContent='●';btnStart.style.background='#6b7280';
@@ -575,7 +570,6 @@ $('btn-stop').addEventListener('click',stopRace);
 $('btn-undo').addEventListener('click',undoLast);
 $('btn-export').addEventListener('click',showExport);
 
-/* Grid tap — edit before race, advance during race */
 gridEl.addEventListener('click',function(e){
     var tile=e.target.closest('.tile');if(!tile)return;
     var id=tile.dataset.id;if(!id)return;
@@ -584,26 +578,21 @@ gridEl.addEventListener('click',function(e){
     advance(id,tile);
 });
 
-/* Confirm modal */
 $('ccancel').addEventListener('click',function(){$('cmod').style.display='none';confirmCb=null;});
 $('cok').addEventListener('click',function(){$('cmod').style.display='none';if(confirmCb)confirmCb();confirmCb=null;});
 
-/* Edit modal */
 $('edit-cancel').addEventListener('click',function(){$('editmod').style.display='none';editingId=null;});
 $('edit-save').addEventListener('click',saveEdit);
 $('edit-del').addEventListener('click',deleteEdit);
 $('edit-num').addEventListener('keydown',function(e){if(e.key==='Enter')saveEdit();});
 
-/* Export modal */
 $('eclose').addEventListener('click',function(){$('emod').style.display='none';});
 $('ecopy').addEventListener('click',copyText);
 $('edl').addEventListener('click',dlHTML);
 
-/* Audio init */
 $('audio-init-btn').addEventListener('click',function(){initAudio();fb('start');$('audio-init').style.display='none';});
 document.addEventListener('click',function f(){if(!audioOK)initAudio();document.removeEventListener('click',f);});
 
-/* Init */
 addCRow('#ef4444','1');
 addCRow('#22c55e','1');
 if(isIOS)setTimeout(function(){$('audio-init').style.display='flex';},800);
@@ -613,4 +602,3 @@ else initAudio();
 </script>
 </body>
 </html>
-
